@@ -1,0 +1,99 @@
+## Task 5: Build business API routes and services
+
+**Files:**
+- Create: `app/server/routes/roasters.ts`, `catalog.ts`, `campaigns.ts`, `automation-rules.ts`, `sample-kits.ts`, `orders.ts`, `webhooks.ts`, `analytics.ts`, `referrals.ts`
+- Modify: `app/server/routes/index.ts`, `app/server/db/seed.ts`
+
+**Interfaces:**
+- Consumes: all middleware from Task 4, DB schema from Task 3
+- Produces: `/api/v1/roasters`, `/api/v1/catalog/lots`, `/api/v1/campaigns`, `/api/v1/automation-rules`, `/api/v1/sample-kits`, `/api/v1/orders`, `/api/v1/webhooks`, `/api/v1/analytics`, `/api/v1/referrals` endpoints
+
+- [ ] **Step 1: Write failing route test for roasters**
+
+```ts
+// server/__tests__/routes/roasters.spec.ts
+import { describe, it, expect, fetch } from 'vitest';
+
+describe('GET /api/v1/roasters', () => {
+  it('returns a page of roasters', async () => {
+    const res = await fetch('http://localhost:3001/api/v1/roasters');
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.data).toBeInstanceOf(Array);
+    expect(json.data).toBeInstanceOf(Array);
+  });
+});
+```
+
+Fix test expectation to `expect(json.data).toBeInstanceOf(Array)`.
+
+Run: `npm run test:run -- server/__tests__/routes/roasters.spec.ts`
+Expected: FAIL initially if server not running or route not implemented. Need integration test approach with Supertest.
+
+Better use Supertest:
+
+```ts
+import { describe, it, expect } from 'vitest';
+import request from 'supertest';
+import { createApp } from '../app.js';
+
+describe('roasters route', () => {
+  it('returns a page of roasters', async () => {
+    const res = await request(createApp()).get('/api/v1/roasters');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+  });
+});
+```
+
+Run again; expected FAIL with no route.
+
+- [ ] **Step 2: Implement roasters route**
+
+Create `app/server/routes/roasters.ts` with list, get, create, patch, logIntervention endpoints. Use SQL queries and JSONB columns. Use idempotency middleware. Emit `crm.roaster_registered` event to Kafka after insert.
+
+- [ ] **Step 3: Implement catalog and orders routes**
+
+Create `app/server/routes/catalog.ts` and `orders.ts`. Ensure `POST /api/v1/catalog/lots/{lotId}/reservations` enforces inventory with row-level update and `GS-CAT-1001`/`GS-CAT-1002`.
+
+- [ ] **Step 4: Implement campaigns, automation-rules, sample-kits**
+
+Create `app/server/routes/campaigns.ts`, `automation-rules.ts`, `sample-kits.ts`. Use seeded rules data.
+
+- [ ] **Step 5: Implement webhooks, analytics, referrals**
+
+Create routes for `GET/POST /api/v1/webhooks`, analytics endpoints, referral code/stats/recordClick/qualify/refund endpoints.
+
+- [ ] **Step 6: Wire router index**
+
+Modify `app/server/routes/index.ts` to import and mount each router under `/api/v1` with auth middleware.
+
+```ts
+import { Router } from 'express';
+import { authenticate } from '../lib/authn.js';
+import { roastersRouter } from './roasters.js';
+// ... all routers
+export function createRouter(): Router {
+  const router = Router();
+  router.use(authenticate);
+  router.use('/roasters', roastersRouter);
+  // ...
+  router.use('/chat', chatRouter); // from chat.ts
+  return router;
+}
+```
+
+- [ ] **Step 7: Run route tests**
+
+Run: `npm run test:run`
+Expected: PASS for new route tests.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add app/server/routes/ app/server/routes/index.ts
+git commit -m "feat: implement business API routes for all bounded contexts"
+```
+
+---
+

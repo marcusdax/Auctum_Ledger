@@ -1,0 +1,82 @@
+## Task 4: Implement shared middleware (errors, idempotency, authn, authz)
+
+**Files:**
+- Create: `app/server/lib/problem.ts`, `app/server/lib/idempotency.ts`, `app/server/lib/authn.ts`, `app/server/lib/authz.ts`
+- Modify: `app/server/routes/index.ts`
+
+**Interfaces:**
+- Consumes: Redis client from Task 1, OIDC env from Task 2
+- Produces: middleware functions used by all route modules
+
+- [ ] **Step 1: Write failing middleware test**
+
+```ts
+// server/__tests__/idempotency.spec.ts
+import { describe, it, expect, jest } from 'vitest';
+import { checkIdempotency } from '../lib/idempotency.js';
+
+describe('idempotency', () => {
+  it('returns conflict when same key has different body', async () => {
+    const result = await checkIdempotency('key-1', { a: 1 });
+    expect(result?.problem?.code).toBe('GS-GEN-1003');
+  });
+});
+```
+
+Run: `npm run test:run -- server/__tests__/idempotency.spec.ts`
+Expected: FAIL (function not implemented)
+
+- [ ] **Step 2: Implement problem helper**
+
+Create `app/server/lib/problem.ts`:
+
+```ts
+export interface Problem {
+  type: string;
+  title: string;
+  status: number;
+  code: string;
+  detail?: string;
+  errors?: Array<{ field: string; code: string; message: string }>;
+  traceId?: string;
+}
+
+export function problem(status: number, code: string, detail?: string, errors?: Array<{ field: string; code: string; message: string }>): Problem {
+  return {
+    type: `https://api.greensheet.io/problems/${code}`,
+    title: code,
+    status,
+    code,
+    detail,
+    errors,
+    traceId: crypto.randomUUID?.(),
+  };
+}
+```
+
+- [ ] **Step 3: Implement Redis-backed idempotency middleware**
+
+Create `app/server/lib/idempotency.ts` implementing `checkIdempotency`, `storeIdempotency`, and an Express middleware that reads `Idempotency-Key`, checks Redis `SET key body NX EX 86400`, and returns 400/422/200 replay per contract.
+
+- [ ] **Step 4: Implement OIDC auth middleware**
+
+Create `app/server/lib/authn.ts` using `jose` `createRemoteJWKSet`, `jwtVerify`, returning `Principal` interface from docs. Add dev shortcut: if `NODE_ENV !== 'production'` and `AUTH_DISABLE=false`, maybe still require OIDC but add a local override `LOCAL_JWT` for test tokens.
+
+- [ ] **Step 5: Implement RBAC middleware**
+
+Create `app/server/lib/authz.ts` with `requireScope(scope)` and `scopedToAccount(param)` as in engineering doc.
+
+- [ ] **Step 6: Write passing tests**
+
+Add tests for `problem` shapes, idempotency replay, auth middleware skipping when disabled. Run `npm run test:run`.
+Expected: PASS
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/server/lib/problem.ts app/server/lib/idempotency.ts app/server/lib/authn.ts app/server/lib/authz.ts
+git commit -m "feat: add error model, Redis idempotency, and authn/authz middleware"
+```
+
+---
+

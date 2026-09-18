@@ -1,0 +1,111 @@
+## Task 1: Add backend dependencies and environment variables
+
+**Files:**
+- Create: `app/server/db/index.ts`, `app/server/app.ts`
+- Modify: `app/package.json`, `app/.env.example`
+
+**Interfaces:**
+- Consumes: none (first task)
+- Produces: `db` connection registry and `createApp()` exported from server for tests
+
+- [ ] **Step 1: Write failing dependency check test**
+
+```ts
+// server/__tests__/deps.spec.ts
+import { describe, it, expect } from 'vitest';
+import { db } from '../db/index.js';
+
+describe('server dependency registry', () => {
+  it('exports a database registry with required keys', () => {
+    expect(db).toBeDefined();
+    expect(typeof db.pg).toBe('object');
+    expect(typeof db.redis).toBe('object');
+    expect(Array.isArray(db.outboxQueue)).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npm run test:run -- server/__tests__/deps.spec.ts`
+Expected: FAIL with `Cannot find module '../db/index.js'`
+
+- [ ] **Step 3: Add dependencies**
+
+Edit `app/package.json` and add to `dependencies`:
+`"pg": "^8.13.0"`, `"kafkajs": "^2.2.0"`, `"redis": "^4.7.0"`, `"jose": "^5.9.0"`, `"zod": "^3.23.0"` (Zod already present but add `zod": "^3.23.0"` if missing). Add to `devDependencies`: `"node-pg-migrate": "^7.5.0"`, `"@types/pg": "^8.11.0"`, `"@types/kafkajs": "^1.9.0"`, `"@types/redis": "^4.6.0"`.
+
+Run: `cd app && npm install`
+
+- [ ] **Step 4: Create server registry and app skeleton**
+
+Create `app/server/db/index.ts`:
+
+```ts
+import { Pool } from 'pg';
+import { Kafka } from 'kafkajs';
+import { createClient } from 'redis';
+
+export const db = {
+  pg: new Pool({ connectionString: process.env.DATABASE_URL }),
+  redis: createClient({ url: process.env.REDIS_URL }),
+  kafka: new Kafka({ brokers: (process.env.KAFKA_BROKERS ?? 'localhost:9092').split(',') }),
+  outboxQueue: [] as Array<{ topic: string; key?: string; value: unknown }>,
+};
+```
+
+Create `app/server/app.ts`:
+
+```ts
+import express from 'express';
+import { createRouter } from './routes/index.js';
+import { problem } from './lib/problem.js';
+
+export function createApp(): express.Express {
+  const app = express();
+  app.use(express.json({ limit: '256kb' }));
+
+  app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+  app.use('/api/v1', createRouter());
+  app.use((_req, res) => problem(404, 'GS-GEN-1005', 'Resource not found'));
+  return app;
+}
+```
+
+Create `app/server/routes/index.ts`:
+
+```ts
+import { Router } from 'express';
+export function createRouter(): Router {
+  return Router();
+}
+```
+
+Modify `app/server/index.ts` to import `createApp` from `./app.ts` and call it (the existing `createApp` should be moved or renamed). Keep `/api/v1/chat` router mounted in `createRouter`.
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `npm run test:run -- server/__tests__/deps.spec.ts`
+Expected: PASS
+
+- [ ] **Step 6: Document environment variables**
+
+Add to `.env.example`:
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/greensheet
+REDIS_URL=redis://localhost:6379
+KAFKA_BROKERS=localhost:9092
+OIDC_ISSUER=https://auth.greensheet.io
+OIDC_AUDIENCE=greensheet-api
+AI_PROXY_URL=http://localhost:3001
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add app/package.json app/.env.example app/server/db/index.ts app/server/app.ts app/server/routes/index.ts app/server/index.ts app/server/__tests__/deps.spec.ts
+git commit -m "feat: add backend dependency registry and Express app skeleton"
+```
+
+---
+

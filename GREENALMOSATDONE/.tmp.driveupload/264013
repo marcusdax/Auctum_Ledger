@@ -1,0 +1,64 @@
+# Task 6 Report: Kafka Emitter & Outbox Relay Implementation
+
+## Summary
+Successfully implemented the Kafka emitter with `emitEvent` function supporting dual call signatures, fixed the outbox relay, and updated all route handlers to use the new `al.*` topic naming convention.
+
+## Changes Made
+
+### 1. Fixed `app/server/lib/kafka.ts`
+- **Removed duplicate `const eventId` line** (lines 63-64 were duplicated)
+- **Fixed variable references** from `event.*` to `options.*` throughout the function body
+- **Verified dual call signatures work**:
+  - `emitEvent(topic, key, data, type)` - positional arguments
+  - `emitEvent({ topic, key, data, type, source })` - options object
+
+### 2. Created `app/server/__tests__/kafka.spec.ts`
+Tests cover:
+- `emitEvent` with options signature returns `published: true` and pushes to outbox
+- `emitEvent` with positional signature works correctly
+- `startOutboxRelay` does not throw in dev mode
+
+### 3. Updated Route Handlers to Use `emitEvent` with `al.*` Topics
+
+| Route | Old Topic | New Topic (`al.*`) |
+|-------|-----------|-------------------|
+| `roasters.ts` (POST) | `crm.roaster_registered` | `al.crm.roaster_registered` |
+| `orders.ts` (POST) | `order.created` | `al.orders.order_created` |
+| `sample-kits.ts` (POST /request) | `sample_kit.requested` | `al.sample_kit.requested` |
+| `webhooks.ts` (POST) | `webhook.created` | `al.webhook.created` |
+| `campaigns.ts` (POST) | `campaign.created` | `al.campaign.created` |
+| `automation-rules.ts` (POST) | `automation-rule.created` | `al.automation-rule.created` |
+| `referrals.ts` (POST /recordClick) | `referral.clicked` | `al.referral.clicked` |
+| `referrals.ts` (POST /qualify) | `referral.qualified` | `al.referral.qualified` |
+| `referrals.ts` (POST /:refCode/refund) | `referral.clawed_back` | `al.referral.clawed_back` |
+
+### 4. Rebranding Applied
+- `gs.` → `al.` (topic prefix)
+- `greensheet` → `auctum-ledger` (source field in CloudEvents)
+
+## Test Results
+```
+Test Files  53 passed (53)
+Tests  312 passed (312)
+```
+
+All existing tests continue to pass, and the 3 new Kafka tests pass.
+
+## Files Modified
+- `app/server/lib/kafka.ts` - Fixed emitEvent implementation
+- `app/server/__tests__/kafka.spec.ts` - New test file
+- `app/server/routes/roasters.ts` - Updated to use emitEvent
+- `app/server/routes/orders.ts` - Updated to use emitEvent
+- `app/server/routes/sample-kits.ts` - Updated to use emitEvent
+- `app/server/routes/webhooks.ts` - Updated to use emitEvent
+- `app/server/routes/campaigns.ts` - Updated to use emitEvent
+- `app/server/routes/automation-rules.ts` - Updated to use emitEvent
+- `app/server/routes/referrals.ts` - Updated to use emitEvent
+
+## Verification
+- ✅ All 312 tests pass (including 3 new Kafka tests)
+- ✅ No remaining `db.outboxQueue.push` calls in route handlers
+- ✅ Both call signatures for `emitEvent` work correctly
+- ✅ CloudEvent specversion 1.0 format maintained
+- ✅ Outbox queue populated in both dev and production modes
+- ✅ `startOutboxRelay` functional for batch processing

@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!--
+    Auctum Ledger — AL Monogram (01-brand-identity.md §2.2)
+    Export variant: 48px (16/32/48 viewports)
+    At 16px the negative-space letters drop out; brass bean-on-ink remains.
+
+    Design tokens (02-design-tokens.md §1.1, §9-10):
+      ink   = navy-700   = #16323E  (brand static)
+      brass = gold-500   = 201 163 74  → rgb(201,163,74)
+      font  = font.display = "Playfair Display", "Cormorant Garamond", Georgia, serif
+
+    Construction (§2.1.1 core, scaled from 240×240 → 48×48):
+      ellipse 24×16 → rx=12 ry=8, rotated 30°
+      center-cut groove 2.5u → 0.75 stroke
+      field: square, 16% radius = 7.68
+  -->
+  <style>
+    :root {
+      /* Brand statics — spec-defined, not arbitrary hex */
+      --al-ink:   #16323E;                                  /* navy-700 / Ink  */
+      --al-brass: rgb(201 163 74);                          /* gold-500 / Brass */
+    }
+    /* Dark-mode: invert the field per favicon export spec (§6) */
+    @media (prefers-color-scheme: dark) {
+      :root { --al-ink: #F6F1E7; }                         /* parchment-100 field */
+    }
+  </style>
+
+  <!-- Ink square field, 16% corner radius -->
+  <rect width="48" height="48" rx="7.68" fill="var(--al-ink)" />
+
+  <defs>
+    <!-- Mask: white = keep brass, black = cut negative-space AL letters -->
+    <mask id="al-monogram-mask">
+      <rect width="48" height="48" fill="white" />
+      <!-- AL letters as negative space; stacked at 62% of field height (≈30px) -->
+      <!-- Playfair Display 700, ~15px on 48px canvas ≈ 72pt optical @240px -->
+      <text x="24" y="17" text-anchor="middle" dominant-baseline="middle"
+            font-family="'Playfair Display','Cormorant Garamond',Georgia,serif"
+            font-size="15" font-weight="700" fill="black">A</text>
+      <text x="24" y="31" text-anchor="middle" dominant-baseline="middle"
+            font-family="'Playfair Display','Cormorant Garamond',Georgia,serif"
+            font-size="15" font-weight="700" fill="black">L</text>
+    </mask>
+  </defs>
+
+  <!-- Brass coffee-bean ellipse, rotated 30°, with AL negative-space cut -->
+  <g mask="url(#al-monogram-mask)">
+    <ellipse cx="24" cy="24" rx="12" ry="8" fill="var(--al-brass)"
+             transform="rotate(30 24 24)" />
+  </g>
+
+  <!-- Center-cut groove along bean major axis -->
+  <path d="M12 24 H36" stroke="var(--al-ink)" stroke-width="0.75"
+        transform="rotate(30 24 24)" />
+</svg>

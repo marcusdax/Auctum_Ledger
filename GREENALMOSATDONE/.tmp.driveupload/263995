@@ -1,0 +1,261 @@
+## Task 3: Scaffold persistence, migrations, and seed data
+
+**Files:**
+- Create: `app/server/db/migrations/*`, `app/server/db/seed.ts`, `app/server/services/*`
+- Modify: `app/server/db/index.ts`
+
+**Interfaces:**
+- Consumes: PostgreSQL connection from Task 1, Docker services from Task 2
+- Produces: schema tables, TimescaleDB hypertable, and seed data matching in-memory `src/api/client.ts`
+
+- [ ] **Step 1: Write migration runner test**
+
+```ts
+// server/__tests__/migrations.spec.ts
+import { describe, it, expect } from 'vitest';
+import { Pool } from 'pg';
+
+describe('migrations', () => {
+  it('creates required tables', async () => {
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const res = await pool.query(`
+      SELECT table_name FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name IN ('roasters','catalog_lots','campaigns')
+      ORDER BY table_name
+    `);
+    const names = res.rows.map(r => r.table_name);
+    expect(names).toContain('roasters');
+    expect(names).toContain('catalog_lots');
+    expect(names).toContain('campaigns');
+  });
+});
+```
+
+Run: `npm run test:run -- server/__tests__/migrations.spec.ts`
+Expected: FAIL initially (tables missing)
+
+- [ ] **Step 2: Create base schema migration**
+
+Create `app/server/db/migrations/202609110000_platform__base.sql` with:
+
+```sql
+-- up
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE SCHEMA IF NOT EXISTS telemetry;
+
+CREATE TABLE public.roasters (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  roaster_name TEXT NOT NULL,
+  segment TEXT NOT NULL DEFAULT 'micro',
+  status TEXT NOT NULL DEFAULT 'trial',
+  churn_risk_score NUMERIC(3,2),
+  ltv_cents BIGINT,
+  cac_cents BIGINT,
+  payback_months INT,
+  days_since_last_order INT,
+  total_revenue_cents BIGINT,
+  total_orders INT,
+  billing_cycle TEXT,
+  last_activity_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  business_registration TEXT UNIQUE,
+  tax_id TEXT,
+  billing_address TEXT,
+  primary_contact JSONB,
+  interventions JSONB
+);
+
+CREATE TABLE public.catalog_lots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  origin TEXT NOT NULL,
+  varietal TEXT,
+  processing_method TEXT,
+  elevation INT,
+  cup_score NUMERIC(4,1),
+  price_per_lb_cents INT NOT NULL,
+  cost_per_lb_cents INT NOT NULL,
+  available_quantity_lbs INT NOT NULL DEFAULT 0,
+  total_production_lbs INT NOT NULL DEFAULT 0,
+  esg_score NUMERIC(3,2),
+  logistics_score NUMERIC(3,2),
+  certifications JSONB,
+  flavorNotes TEXT[],
+  sensory_profile JSONB,
+  port_of_origin TEXT,
+  estimated_arrival DATE,
+  status TEXT NOT NULL DEFAULT 'active',
+  last_updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.campaigns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  version INT NOT NULL DEFAULT 1,
+  target_audience JSONB,
+  rule_codes TEXT[],
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.automation_rules (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  rule_code TEXT NOT NULL UNIQUE,
+  campaign_id UUID REFERENCES public.campaigns(id),
+  rule_name TEXT NOT NULL,
+  trigger_event TEXT NOT NULL,
+  conditions_json JSONB NOT NULL DEFAULT '{}',
+  version INT NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'armed',
+  actions JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.sample_kits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  roaster_id UUID REFERENCES public.roasters(id),
+  status TEXT NOT NULL DEFAULT 'requested',
+  lots JSONB NOT NULL,
+  tracking_number TEXT,
+  carrier TEXT,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  shipped_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  feedback_token UUID UNIQUE DEFAULT gen_random_uuid(),
+  feedback JSONB,
+  feedback_submitted_at TIMESTAMPTZ,
+  temporal_workflow_id TEXT
+);
+
+CREATE TABLE public.orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  line_items JSONB NOT NULL,
+  final_total_cents BIGINT NOT NULL,
+  invoice_number TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.webhook_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  url TEXT NOT NULL,
+  events TEXT[] NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  signing_secret TEXT NOT NULL DEFAULT ('whsec_' || encode(gen_random_bytes(16), 'hex')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.referral_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES public.roasters(id),
+  referee_id UUID REFERENCES public.roasters(id),
+  ref_code TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'invited',
+  channel TEXT,
+  clicked_at TIMESTAMPTZ,
+  signed_up_at TIMESTAMPTZ,
+  kit_requested_at TIMESTAMPTZ,
+  kit_delivered_at TIMESTAMPTZ,
+  feedback_submitted_at TIMESTAMPTZ,
+  first_order_delivered_at TIMESTAMPTZ,
+  qualified_at TIMESTAMPTZ,
+  clawed_back_at TIMESTAMPTZ,
+  review_status TEXT DEFAULT 'pending_review',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.reward_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES public.roasters(id),
+  referral_id UUID REFERENCES public.referrals(id),
+  type TEXT NOT NULL,
+  amount_cents INT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'posted',
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  posted_at TIMESTAMPTZ,
+  clawed_back_at TIMESTAMPTZ
+);
+
+CREATE TABLE public.outbox_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  topic TEXT NOT NULL,
+  key TEXT,
+  payload JSONB NOT NULL,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  error TEXT,
+  attempts INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published_at TIMESTAMPTZ
+);
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER roasters_updated_at BEFORE UPDATE ON public.roasters FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER catalog_lots_updated_at BEFORE UPDATE ON public.catalog_lots FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER campaigns_updated_at BEFORE UPDATE ON public.campaigns FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+CREATE TRIGGER automation_rules_updated_at BEFORE UPDATE ON public.automation_rules FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+-- Add triggers for other tables similarly.
+```
+
+- [ ] **Step 3: Create TimescaleDB extension migration**
+
+Create `app/server/db/migrations/202609110100_telemetry__engagement.sql`:
+
+```sql
+-- up
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+CREATE TABLE telemetry.engagement_events (
+  time TIMESTAMPTZ NOT NULL,
+  event_id UUID NOT NULL DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL,
+  event_type TEXT NOT NULL,
+  source TEXT,
+  campaign_id UUID,
+  session_id UUID,
+  value NUMERIC,
+  dimensions JSONB NOT NULL DEFAULT '{}',
+  ingest_idem_key TEXT
+);
+SELECT create_hypertable('telemetry.engagement_events', 'time', chunk_time_interval => INTERVAL '7 days', if_not_exists => TRUE);
+```
+
+- [ ] **Step 4: Create seed script**
+
+Create `app/server/db/seed.ts` that imports types from `../../src/types/api.ts` and uses the seeded data currently in `src/api/db.ts` (lots, roasters, campaigns, rules, referralCodes, referrals, rewardsLedger, orders, etc.) to insert via `db.pg`.
+
+- [ ] **Step 5: Run migration and seed, then run test**
+
+Run: `DATABASE_URL=... npm run db:migrate` then `DATABASE_URL=... npm run db:seed`
+Run: `npm run test:run -- server/__tests__/migrations.spec.ts`
+Expected: PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/server/db/ app/server/services/
+git commit -m "feat: add PostgreSQL schema, migrations, and seed data"
+```
+
+---
+

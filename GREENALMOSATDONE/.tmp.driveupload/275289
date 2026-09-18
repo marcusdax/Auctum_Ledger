@@ -1,0 +1,130 @@
+{
+  "hash": "82257d99",
+  "configHash": "22999f7a",
+  "lockfileHash": "de28451e",
+  "browserHash": "7006e176",
+  "optimized": {
+    "@hookform/resolvers/zod": {
+      "src": "../../@hookform/resolvers/zod/dist/zod.mjs",
+      "file": "@hookform_resolvers_zod.js",
+      "fileHash": "e9490a2d",
+      "needsInterop": false
+    },
+    "framer-motion": {
+      "src": "../../framer-motion/dist/es/index.mjs",
+      "file": "framer-motion.js",
+      "fileHash": "a7e77009",
+      "needsInterop": false
+    },
+    "i18next-browser-languagedetector": {
+      "src": "../../i18next-browser-languagedetector/dist/esm/i18nextBrowserLanguageDetector.js",
+      "file": "i18next-browser-languagedetector.js",
+      "fileHash": "19c6002b",
+      "needsInterop": false
+    },
+    "i18next": {
+      "src": "../../i18next/dist/esm/i18next.js",
+      "file": "i18next.js",
+      "fileHash": "c15aa39b",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../lucide-react/dist/esm/lucide-react.mjs",
+      "file": "lucide-react.js",
+      "fileHash": "7582f326",
+      "needsInterop": false
+    },
+    "react-dom": {
+      "src": "../../react-dom/index.js",
+      "file": "react-dom.js",
+      "fileHash": "90279428",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "41b74833",
+      "needsInterop": true
+    },
+    "react-hook-form": {
+      "src": "../../react-hook-form/dist/index.esm.mjs",
+      "file": "react-hook-form.js",
+      "fileHash": "961fd713",
+      "needsInterop": false
+    },
+    "react-i18next": {
+      "src": "../../react-i18next/dist/es/index.js",
+      "file": "react-i18next.js",
+      "fileHash": "cfca3ab0",
+      "needsInterop": false
+    },
+    "react-router-dom": {
+      "src": "../../react-router-dom/dist/index.js",
+      "file": "react-router-dom.js",
+      "fileHash": "a0e6bf3c",
+      "needsInterop": false
+    },
+    "react": {
+      "src": "../../react/index.js",
+      "file": "react.js",
+      "fileHash": "17697062",
+      "needsInterop": true
+    },
+    "react/jsx-dev-runtime": {
+      "src": "../../react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "55c15794",
+      "needsInterop": true
+    },
+    "react/jsx-runtime": {
+      "src": "../../react/jsx-runtime.js",
+      "file": "react_jsx-runtime.js",
+      "fileHash": "d47eec58",
+      "needsInterop": true
+    },
+    "recharts": {
+      "src": "../../recharts/es6/index.js",
+      "file": "recharts.js",
+      "fileHash": "803bfff2",
+      "needsInterop": false
+    },
+    "zod": {
+      "src": "../../zod/index.js",
+      "file": "zod.js",
+      "fileHash": "2d3d20f8",
+      "needsInterop": false
+    },
+    "zustand": {
+      "src": "../../zustand/esm/index.mjs",
+      "file": "zustand.js",
+      "fileHash": "1d30333c",
+      "needsInterop": false
+    },
+    "zustand/middleware": {
+      "src": "../../zustand/esm/middleware.mjs",
+      "file": "zustand_middleware.js",
+      "fileHash": "943c764d",
+      "needsInterop": false
+    },
+    "zustand/middleware/immer": {
+      "src": "../../zustand/esm/middleware/immer.mjs",
+      "file": "zustand_middleware_immer.js",
+      "fileHash": "45e31afe",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "immer-DeNbzB22": {
+      "file": "immer-DeNbzB22.js",
+      "isDynamicEntry": false
+    },
+    "rolldown-runtime-B-1-B7_t": {
+      "file": "rolldown-runtime-B-1-B7_t.js",
+      "isDynamicEntry": false
+    },
+    "shim-DO6Qh8OF": {
+      "file": "shim-DO6Qh8OF.js",
+      "isDynamicEntry": false
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# SDD ledger — plan: docs/superpowers/plans/2026-09-11-greensheet-production-docker.md
+
+## Rulings
+
+- **Ruling: Rebranding scope** — The user explicitly requested removing "greensheet" and using only "Auctum Ledger" rebranding. All plan references to "greensheet" are reinterpreted as Auctum Ledger: `greensheet` → `auctum-ledger` (kebab-case identifiers), `Greensheet` → `Auctum Ledger` (brand name), `GS-` → `AL-` (error codes), `gs.` → `al.` (Kafka topics), `api.greensheet.io` → `api.auctumledger.io`, `auth.greensheet.io` → `auth.auctumledger.io`, `developers.greensheet.io` → `developers.auctumledger.io`.
+- **Ruling: Zod version** — Task 1 says to add `zod": "^3.23.0"`, but `app/package.json` already contains `zod": "^4.4.3"`. Per the plan's own note ("Zod already present but add ... if missing"), we keep the existing version 4.4.3 and do not downgrade.
+- **Ruling: Spec authority** — The plan names `docs/superpowers/specs/2026-09-11-greensheet-production-docker-design.md` as its spec. Where the plan's snippets conflict with the spec (e.g., error code namespace, topic prefix), the spec is the binding authority, rebranded to Auctum Ledger.
+- **Ruling: Docker Compose port** — Task 2's sample uses port 80 for the app service per Global Constraints, but the existing compose uses 8080. Global Constraints mandate port 80, so we use 80.
+- **Ruling: TimescaleDB service** — Task 2 includes a dedicated `timescaledb` service per Global Constraints and spec, so we keep it even though the dev compose may reuse postgres extension.
+
+## Conflict Scan (pre-flight)
+
+| Pair of Tasks | Shared File/Interface | Finding | Resolution |
+|---|---|---|---|
+| Task 1 → Task 2 | `.env.example` → `docker-compose.yml` | Task 1 adds `DATABASE_URL` etc.; Task 2 consumes them. Rebranding must be applied consistently to DB name/user. | Rebrand to `auctum-ledger` everywhere. |
+| Task 1 → Task 3 | `app/server/db/index.ts` | Task 1 creates registry; Task 3 modifies it for migrations/seed. | Sequential execution; Task 3 extends Task 1's file. |
+| Task 4 → Task 5 | `app/server/routes/index.ts` | Task 4 mounts middleware; Task 5 mounts routers. | Task 4 runs first; Task 5 extends the router index. |
+| Task 5 → Task 6 | `app/server/routes/*.ts` | Task 5 creates routes; Task 6 modifies them to emit Kafka events. | Sequential execution; Task 6 extends Task 5's routes. |
+| Task 5 → Task 7 | `app/src/api/client.ts` | Task 5 creates backend endpoints; Task 7 rewrites frontend client to call them. | Sequential execution; Task 7 depends on Task 5 endpoints. |
+| Task 2 → Task 9 | `app/docker-compose.yml` | Task 2 creates stack; Task 9 validates it with `npm run docker:prod`. | Consistent; Task 9 is the final validation gate. |
+| Task 3 → Task 5 | PostgreSQL schema → route SQL | Task 3 creates tables; Task 5 queries them. | Consistent; Task 5 depends on Task 3 schema. |
+| Task 4 → Task 5 | `app/server/lib/*` | Task 4 creates middleware; Task 5 imports it. | Consistent; Task 5 depends on Task 4 middleware. |
+| Task 6 → Task 5 | Kafka topic naming | Task 6 defines `gs.` topics; Task 5 routes may reference them. | Rebrand to `al.` per spec rebranding ruling. |
+| Task 8 → Task 7 | Frontend tests | Task 8 adds integration tests; Task 7 adds frontend tests. | Both can reference the same test suite; Task 8 runs after Task 7. |
+
+## Task 1: complete
+
+## Task 2: complete
+
+## Task 3: complete
+
+## Task 4: complete
+
+## Task 5: complete
+
+## Task 6: complete
+
+## Task 7: complete
+
+## Task 8: complete
+
+## Task 9: complete

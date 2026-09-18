@@ -1,0 +1,49 @@
+## Task 6: Wire Kafka event production and outbox
+
+**Files:**
+- Create: `app/server/lib/kafka.ts`, event emitters in each service
+- Modify: `app/server/routes/*.ts`
+
+**Interfaces:**
+- Consumes: Kafka client from Task 1, routes from Task 5
+- Produces: CloudEvents JSON records published to topics like `gs.crm.events.v1`, `gs.orders.events.v1`, etc.
+
+- [ ] **Step 1: Write failing Kafka test**
+
+```ts
+// server/__tests__/kafka.spec.ts
+import { describe, it, expect } from 'vitest';
+import { emitEvent } from '../lib/kafka.js';
+
+describe('Kafka emitter', () => {
+  it('publishes an event to the outbox queue', async () => {
+    const result = await emitEvent({ topic: 'gs.crm.events.v1', key: 'r_001', data: { type: 'crm.roaster_registered' } });
+    expect(result.published).toBe(true);
+  });
+});
+```
+
+Run: `npm run test:run -- server/__tests__/kafka.spec.ts`
+Expected: FAIL
+
+- [ ] **Step 2: Implement Kafka producer helper**
+
+Create `app/server/lib/kafka.ts` with `emitEvent` that pushes to `db.outboxQueue` when Kafka unavailable (development) or calls `kafka.producer().send(...)` when connected. Include CloudEvent wrapper.
+
+- [ ] **Step 3: Add outbox relay task**
+
+Create a periodic task that flushes `db.outboxQueue` to Kafka, marks published. For dev, console-log if Kafka unavailable.
+
+- [ ] **Step 4: Write passing test**
+
+Run the same Kafka test. Expected PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/server/lib/kafka.ts
+git commit -m "feat: add Kafka outbox event emitter"
+```
+
+---
+

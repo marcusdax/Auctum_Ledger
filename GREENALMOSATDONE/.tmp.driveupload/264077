@@ -1,0 +1,21 @@
+# Database URL for Auctum Ledger (rebranded from greensheet)
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/auctum-ledger
+
+# Redis URL
+REDIS_URL=redis://localhost:6379
+
+# Kafka brokers
+KAFKA_BROKERS=localhost:9092
+
+# OIDC configuration
+OIDC_ISSUER=https://auth.auctumledger.io
+OIDC_AUDIENCE=auctum-ledger-api
+
+# AI Proxy URL
+AI_PROXY_URL=http://localhost:3001
+
+# Port for the Express AI proxy
+AI_PROXY_PORT=3001
+
+# AI Proxy URL used by the browser client
+VITE_AI_PROXY_URL=http://localhost:3001

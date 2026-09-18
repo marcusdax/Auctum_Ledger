@@ -1,0 +1,56 @@
+## Task 7: Migrate frontend from in-memory mock API to real backend
+
+**Files:**
+- Modify: `app/src/api/client.ts`, `app/src/api/http.ts` (optional), `app/src/stores/root-store.ts`
+- Test: `app/src/App.test.tsx` or API smoke tests
+
+**Interfaces:**
+- Consumes: backend API from Task 5
+- Produces: frontend still renders same pages but calls `/api/v1/*` instead of mock data
+
+- [ ] **Step 1: Write failing frontend API test**
+
+```tsx
+// src/api/__tests__/client.test.ts
+import { describe, it, expect } from 'vitest';
+import { api } from '../client.js';
+
+describe('api client', () => {
+  it('roasters.list returns data from server', async () => {
+    const result = await api.roasters.list();
+    expect(result.data).toBeInstanceOf(Array);
+  });
+});
+```
+
+Run: `npm run test:run -- src/api/__tests__/client.test.ts`
+Expected: FAIL if still returning undefined because mock DB not initialized via server.
+
+- [ ] **Step 2: Replace mock API client with HTTP client**
+
+Rewrite `app/src/api/client.ts` to use `fetch` to `import.meta.env.VITE_API_BASE_URL ?? '/api/v1'` and implement all API functions using server endpoints. Remove in-memory `db` references from production code but keep a small test seed helper in `src/api/test-fixtures.ts` if needed. Preserve exported `api` shape and types from `../types/api`.
+
+- [ ] **Step 3: Add TypeScript test for HTTP helper**
+
+Create `app/src/api/http.ts` with `get`, `post`, `patch`, `del` wrappers and error class mapping `problem` JSON to throw.
+
+- [ ] **Step 4: Update root store base URL**
+
+Modify `app/src/stores/root-store.ts` or create `app/src/api/http.ts` to read `VITE_API_BASE_URL`.
+
+- [ ] **Step 5: Run frontend tests and build**
+
+Run: `npm run test:run`
+Expected: PASS
+Run: `npm run build`
+Expected: PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/src/api/client.ts app/src/api/http.ts app/src/stores/root-store.ts
+git commit -m "feat: migrate frontend API calls from in-memory mock to backend"
+```
+
+---
+

@@ -1,0 +1,170 @@
+## Task 2: Add PostgreSQL, TimescaleDB, Redis, and Kafka to Docker Compose
+
+**Files:**
+- Modify: `app/docker-compose.yml`, `app/docker-compose.dev.yml`, `app/.env.docker`
+
+**Interfaces:**
+- Consumes: environment variables from Task 1
+- Produces: local Docker stack with `postgres`, `timescaledb`, `redis`, `kafka` services healthy before `api` and `app` start
+
+- [ ] **Step 1: Write failing integration smoke test**
+
+```ts
+// server/__tests__/stack-health.spec.ts
+import { describe, it, expect, fetch } from 'vitest';
+
+describe('Docker stack health', () => {
+  it('postgres is reachable', async () => {
+    const res = await fetch('http://localhost:5432/');
+    expect(res.status).toBe(52);
+  });
+});
+```
+
+Better: use a temporary Docker Compose config check instead.
+
+- [ ] **Step 2: Run docker compose config validation**
+
+Run: `cd app && docker compose config`
+Expected: VALID (or fail if syntax error — fix before continuing)
+
+- [ ] **Step 3: Update production docker-compose.yml**
+
+Replace `app/docker-compose.yml` with a full stack:
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: greensheet
+      POSTGRES_PASSWORD: greensheet
+      POSTGRES_DB: greensheet
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greensheet"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: greensheet
+      POSTGRES_PASSWORD: greensheet
+      POSTGRES_DB: greensheet
+    ports:
+      - "5433:5432"
+    volumes:
+      - tsdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U greensheet"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+    restart: unless-stopped
+
+  kafka:
+    image: bitnami/kafka:3.8
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "9092:9092"
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions.sh --bootstrap-server localhost:9092 | head -1"]
+      interval: 10s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+      target: prod
+    environment:
+      AI_PROXY_PORT: 3001
+      AI_ALLOWED_ORIGINS: http://localhost,http://localhost:80
+      DATABASE_URL: postgresql://greensheet:greensheet@postgres:5432/greensheet
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: kafka:9092
+      OIDC_ISSUER: https://auth.greensheet.io
+      OIDC_AUDIENCE: greensheet-api
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.app
+      target: prod
+      additional_contexts:
+        localization: ../localization/02-locale-files
+      args:
+        - VITE_AI_PROXY_URL=http://localhost
+        - VITE_API_BASE_URL=/api/v1
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  tsdata:
+```
+
+Create `app/.env.docker`:
+
+```
+DATABASE_URL=postgresql://greensheet:greensheet@localhost:5432/greensheet
+REDIS_URL=redis://localhost:6379
+KAFKA_BROKERS=localhost:9092
+```
+
+Modify `app/docker-compose.dev.yml` to include the same supporting services (no `timescaledb` maybe reuse postgres extension) but add `postgres`, `redis`, `kafka` with healthchecks and `api` depends_on them.
+
+- [ ] **Step 4: Run docker compose config and bring up supporting services**
+
+Run: `cd app && docker compose -f docker-compose.yml config` then `docker compose -f docker-compose.yml up -d postgres redis kafka`
+Expected: services start and healthchecks pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/docker-compose.yml app/docker-compose.dev.yml app/.env.docker
+git commit -m "feat: add PostgreSQL, TimescaleDB, Redis, Kafka to Docker stack"
+```
+
+---
+

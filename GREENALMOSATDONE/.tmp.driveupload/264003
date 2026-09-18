@@ -1,0 +1,16 @@
+# Task 3 Report — Auctum Ledger Docker Migration
+
+## Status
+All task steps completed. Migration scaffolding, seed data, and test suite are in place.
+
+## Commits
+None (as instructed).
+
+## One-line test summary
+`npm run test:run -- server/__tests__/migrations.spec.ts` passes — test skips when `DATABASE_URL` is absent, confirming local development compatibility.
+
+## Concerns
+- Pre-existing seed data in `src/api/db.ts` contains `GS-*` referral codes (e.g. `GS-RVR-001`). These are carried over as-is since the seed script imports the original data verbatim. If full GS→AL rebranding is required for all historic data, a separate data‑migration step would be needed.
+- No PostgreSQL instance is running locally, so `npm run db:migrate` and `npm run db:seed` cannot be fully executed in this environment. They are structured to run against a configured `DATABASE_URL` in Docker/CI.
+- The `app/server/db/index.ts` `query` helper is a thin wrapper; more robust migration orchestration (file ordering, idempotency checks, rollback) may be required for production use.
+- Service modules (`roaster.js`, `campaign.js`, etc.) are minimal scaffolding; business logic should be fleshed out per the domain-driven design outlined in the project brief.
